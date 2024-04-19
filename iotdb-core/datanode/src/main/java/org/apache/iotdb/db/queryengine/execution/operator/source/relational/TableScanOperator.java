@@ -21,6 +21,7 @@ package org.apache.iotdb.db.queryengine.execution.operator.source.relational;
 
 import org.apache.iotdb.commons.path.AlignedPath;
 import org.apache.iotdb.commons.path.PartialPath;
+import org.apache.iotdb.commons.schema.table.column.TsTableColumnCategory;
 import org.apache.iotdb.db.queryengine.execution.operator.OperatorContext;
 import org.apache.iotdb.db.queryengine.execution.operator.source.AbstractDataSourceOperator;
 import org.apache.iotdb.db.queryengine.execution.operator.source.AlignedSeriesScanUtil;
@@ -74,7 +75,7 @@ public class TableScanOperator extends AbstractDataSourceOperator {
 
   private final List<TSDataType> measurementColumnTSDataTypes;
 
-  private final TsBlockBuilder measurementDataBuilder;
+  private TsBlockBuilder measurementDataBuilder;
 
   private final int maxTsBlockLineNum;
 
@@ -119,9 +120,6 @@ public class TableScanOperator extends AbstractDataSourceOperator {
     this.maxTsBlockLineNum = maxTsBlockLineNum;
 
     this.seriesScanUtil = constructAlignedSeriesScanUtil(deviceEntries.get(currentDeviceIndex));
-
-    this.measurementDataBuilder = new TsBlockBuilder(this.measurementColumnTSDataTypes);
-    this.resultTsBlockBuilder.setMaxTsBlockLineNumber(this.maxTsBlockLineNum);
   }
 
   @Override
@@ -170,7 +168,10 @@ public class TableScanOperator extends AbstractDataSourceOperator {
     // append id column and attribute column
     if (!isEmpty(measurementDataBlock)) {
       constructResultTsBlock();
+    } else {
+      return null;
     }
+    measurementDataBlock = null;
     return checkTsBlockSizeAndGetResult();
   }
 
@@ -265,6 +266,8 @@ public class TableScanOperator extends AbstractDataSourceOperator {
         case MEASUREMENT:
           valueColumns[i] = measurementDataBlock.getColumn(columnsIndexArray[i]);
           break;
+        case TIME:
+          break;
         default:
           throw new IllegalArgumentException(
               "Unexpected column category: " + columnSchemas.get(i).getColumnCategory());
@@ -318,7 +321,9 @@ public class TableScanOperator extends AbstractDataSourceOperator {
   public List<TSDataType> getResultDataTypes() {
     List<TSDataType> resultDataTypes = new ArrayList<>(columnSchemas.size());
     for (ColumnSchema columnSchema : columnSchemas) {
-      resultDataTypes.add(getTSDataType(columnSchema.getType()));
+      if (columnSchema.getColumnCategory() != TsTableColumnCategory.TIME) {
+        resultDataTypes.add(getTSDataType(columnSchema.getType()));
+      }
     }
     return resultDataTypes;
   }
@@ -329,6 +334,8 @@ public class TableScanOperator extends AbstractDataSourceOperator {
     this.seriesScanUtil.initQueryDataSource(dataSource);
     this.resultTsBlockBuilder = new TsBlockBuilder(getResultDataTypes());
     this.resultTsBlockBuilder.setMaxTsBlockLineNumber(this.maxTsBlockLineNum);
+    this.measurementDataBuilder = new TsBlockBuilder(this.measurementColumnTSDataTypes);
+    this.measurementDataBuilder.setMaxTsBlockLineNumber(this.maxTsBlockLineNum);
   }
 
   private void prepareForNextDevice() {
