@@ -23,6 +23,7 @@ import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.commons.schema.table.TsTable;
 import org.apache.iotdb.commons.schema.table.column.MeasurementColumnSchema;
 import org.apache.iotdb.commons.schema.table.column.TsTableColumnCategory;
+import org.apache.iotdb.commons.schema.table.column.TsTableColumnSchema;
 import org.apache.iotdb.db.exception.sql.SemanticException;
 import org.apache.iotdb.db.protocol.session.IClientSession;
 import org.apache.iotdb.db.queryengine.plan.relational.analyzer.schema.ITableDeviceSchemaValidation;
@@ -36,8 +37,9 @@ import org.apache.iotdb.db.relational.sql.tree.Row;
 import org.apache.iotdb.db.relational.sql.tree.Values;
 import org.apache.iotdb.db.schemaengine.table.DataNodeTableCache;
 import org.apache.iotdb.db.utils.TimestampPrecisionUtils;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
-import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
+
+import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.write.schema.MeasurementSchema;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -99,6 +101,10 @@ public class InsertTableStatement extends Statement implements ITableDeviceSchem
           hasColumn
               ? columnNameList.get(i).getValue()
               : table.getColumnList().get(i).getColumnName();
+      TsTableColumnSchema columnSchema = table.getColumnSchema(columnName);
+      if (columnSchema == null) {
+        throw new SemanticException(String.format("Unknown Column %s", columnName));
+      }
       TsTableColumnCategory category = table.getColumnSchema(columnName).getColumnCategory();
       if (category.equals(TsTableColumnCategory.ID)) {
         idColumnMap.put(columnName, ((Identifier) values.get(i)).getValue());

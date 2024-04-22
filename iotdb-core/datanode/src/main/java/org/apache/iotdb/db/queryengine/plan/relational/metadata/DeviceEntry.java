@@ -19,7 +19,7 @@
 
 package org.apache.iotdb.db.queryengine.plan.relational.metadata;
 
-import org.apache.iotdb.tsfile.file.metadata.IDeviceID;
+import org.apache.tsfile.file.metadata.IDeviceID;
 
 import java.util.List;
 
@@ -39,5 +39,15 @@ public class DeviceEntry {
 
   public List<String> getAttributeColumnValues() {
     return attributeColumnValues;
+  }
+
+  @Override
+  public String toString() {
+    return "DeviceEntry{"
+        + "deviceID="
+        + deviceID
+        + ", attributeColumnValues="
+        + attributeColumnValues
+        + '}';
   }
 }

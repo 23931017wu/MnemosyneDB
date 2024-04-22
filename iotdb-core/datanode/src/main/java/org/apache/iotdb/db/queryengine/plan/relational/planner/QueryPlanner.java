@@ -32,11 +32,11 @@ import org.apache.iotdb.db.relational.sql.tree.Query;
 import org.apache.iotdb.db.relational.sql.tree.QueryBody;
 import org.apache.iotdb.db.relational.sql.tree.QuerySpecification;
 import org.apache.iotdb.db.relational.sql.tree.SortItem;
-import org.apache.iotdb.tsfile.read.common.type.Type;
-import org.apache.iotdb.tsfile.utils.Pair;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import org.apache.tsfile.read.common.type.Type;
+import org.apache.tsfile.utils.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -248,7 +248,8 @@ public class QueryPlanner {
     analysis.setGlobalTableModelTimePredicate(globalTimePredicate);
 
     return subPlan.withNewRoot(
-        new FilterNode(idAllocator.genPlanNodeId(), subPlan.getRoot(), predicate));
+        new FilterNode(
+            idAllocator.genPlanNodeId(), subPlan.getRoot(), subPlan.rewrite(predicate, true)));
 
     // subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(node));
   }

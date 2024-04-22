@@ -173,6 +173,7 @@ import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.Sche
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.SchemaQueryMergeNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.SchemaQueryOrderByHeatNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.SchemaQueryScanNode;
+import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.TableDeviceScanNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.TimeSeriesCountNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.TimeSeriesSchemaScanNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.process.AggregationMergeSortNode;
@@ -243,21 +244,21 @@ import org.apache.iotdb.db.utils.columngenerator.ColumnGeneratorType;
 import org.apache.iotdb.db.utils.columngenerator.SlidingTimeColumnGenerator;
 import org.apache.iotdb.db.utils.columngenerator.parameter.ColumnGeneratorParameter;
 import org.apache.iotdb.db.utils.columngenerator.parameter.SlidingTimeColumnGeneratorParameter;
-import org.apache.iotdb.tsfile.common.conf.TSFileDescriptor;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
-import org.apache.iotdb.tsfile.read.TimeValuePair;
-import org.apache.iotdb.tsfile.read.common.block.TsBlockBuilder;
-import org.apache.iotdb.tsfile.read.filter.basic.Filter;
-import org.apache.iotdb.tsfile.read.filter.operator.TimeFilterOperators.TimeGt;
-import org.apache.iotdb.tsfile.read.filter.operator.TimeFilterOperators.TimeGtEq;
-import org.apache.iotdb.tsfile.utils.Binary;
-import org.apache.iotdb.tsfile.utils.Pair;
-import org.apache.iotdb.tsfile.utils.TimeDuration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.apache.tsfile.common.conf.TSFileDescriptor;
+import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.read.TimeValuePair;
+import org.apache.tsfile.read.common.block.TsBlockBuilder;
+import org.apache.tsfile.read.filter.basic.Filter;
+import org.apache.tsfile.read.filter.operator.TimeFilterOperators.TimeGt;
+import org.apache.tsfile.read.filter.operator.TimeFilterOperators.TimeGtEq;
+import org.apache.tsfile.utils.Binary;
+import org.apache.tsfile.utils.Pair;
+import org.apache.tsfile.utils.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -3261,5 +3262,26 @@ public class OperatorTreeGenerator extends PlanVisitor<Operator, LocalExecutionP
                 ExplainAnalyzeOperator.class.getSimpleName());
     return new ExplainAnalyzeOperator(
         operatorContext, operator, node.getQueryId(), node.isVerbose(), node.getTimeout());
+  }
+
+  @Override
+  public Operator visitTableDeviceScan(
+      TableDeviceScanNode node, LocalExecutionPlanContext context) {
+    OperatorContext operatorContext =
+        context
+            .getDriverContext()
+            .addOperatorContext(
+                context.getNextOperatorId(),
+                node.getPlanNodeId(),
+                SchemaQueryScanOperator.class.getSimpleName());
+    return new SchemaQueryScanOperator<>(
+        node.getPlanNodeId(),
+        operatorContext,
+        SchemaSourceFactory.getTableDeviceSchemaSource(
+            node.getDatabase(),
+            node.getTableName(),
+            node.getIdDeterminedFilterList(),
+            node.getIdFuzzyFilterList(),
+            node.getColumnHeaderList()));
   }
 }

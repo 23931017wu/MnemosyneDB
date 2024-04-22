@@ -62,6 +62,7 @@ import org.apache.iotdb.db.schemaengine.schemaregion.mtree.impl.mem.mnode.IMemMN
 import org.apache.iotdb.db.schemaengine.schemaregion.read.req.IShowDevicesPlan;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.req.IShowNodesPlan;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.req.IShowTimeSeriesPlan;
+import org.apache.iotdb.db.schemaengine.schemaregion.read.req.impl.ShowTableDevicesPlan;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.resp.info.IDeviceSchemaInfo;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.resp.info.INodeSchemaInfo;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.resp.info.ITimeSeriesSchemaInfo;
@@ -88,10 +89,10 @@ import org.apache.iotdb.db.schemaengine.schemaregion.write.req.view.IPreDeleteLo
 import org.apache.iotdb.db.schemaengine.schemaregion.write.req.view.IRollbackPreDeleteLogicalViewPlan;
 import org.apache.iotdb.db.schemaengine.template.Template;
 import org.apache.iotdb.db.utils.SchemaUtils;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
-import org.apache.iotdb.tsfile.utils.Pair;
 
+import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.file.metadata.enums.TSEncoding;
+import org.apache.tsfile.utils.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +105,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.PATH_SEPARATOR;
+import static org.apache.tsfile.common.constant.TsFileConstant.PATH_SEPARATOR;
 
 /**
  * This class takes the responsibility of serialization of all the metadata info of one certain
@@ -1245,7 +1246,8 @@ public class SchemaRegionMemoryImpl implements ISchemaRegion {
   @Override
   public ISchemaReader<IDeviceSchemaInfo> getDeviceReader(IShowDevicesPlan showDevicesPlan)
       throws MetadataException {
-    return mtree.getDeviceReader(showDevicesPlan);
+    return mtree.getDeviceReader(
+        showDevicesPlan, (pointer, name) -> deviceAttributeStore.getAttribute(pointer, name));
   }
 
   @Override
@@ -1273,6 +1275,15 @@ public class SchemaRegionMemoryImpl implements ISchemaRegion {
   public ISchemaReader<INodeSchemaInfo> getNodeReader(IShowNodesPlan showNodesPlan)
       throws MetadataException {
     return mtree.getNodeReader(showNodesPlan);
+  }
+
+  @Override
+  public ISchemaReader<IDeviceSchemaInfo> getTableDeviceReader(
+      ShowTableDevicesPlan showTableDevicesPlan) throws MetadataException {
+    return mtree.getDeviceReader(
+        showTableDevicesPlan.getDevicePattern(),
+        showTableDevicesPlan.getAttributeFilter(),
+        (pointer, name) -> deviceAttributeStore.getAttribute(pointer, name));
   }
 
   // endregion

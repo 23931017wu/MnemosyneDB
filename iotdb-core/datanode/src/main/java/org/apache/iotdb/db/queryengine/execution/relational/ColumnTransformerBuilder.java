@@ -80,14 +80,15 @@ import org.apache.iotdb.db.relational.sql.tree.SimpleCaseExpression;
 import org.apache.iotdb.db.relational.sql.tree.StringLiteral;
 import org.apache.iotdb.db.relational.sql.tree.SymbolReference;
 import org.apache.iotdb.db.relational.sql.tree.Trim;
-import org.apache.iotdb.tsfile.common.conf.TSFileConfig;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
-import org.apache.iotdb.tsfile.read.common.block.column.BinaryColumn;
-import org.apache.iotdb.tsfile.read.common.block.column.BooleanColumn;
-import org.apache.iotdb.tsfile.read.common.block.column.DoubleColumn;
-import org.apache.iotdb.tsfile.read.common.block.column.LongColumn;
-import org.apache.iotdb.tsfile.read.common.type.Type;
-import org.apache.iotdb.tsfile.utils.Binary;
+
+import org.apache.tsfile.common.conf.TSFileConfig;
+import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.read.common.block.column.BinaryColumn;
+import org.apache.tsfile.read.common.block.column.BooleanColumn;
+import org.apache.tsfile.read.common.block.column.DoubleColumn;
+import org.apache.tsfile.read.common.block.column.LongColumn;
+import org.apache.tsfile.read.common.type.Type;
+import org.apache.tsfile.utils.Binary;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,12 +97,12 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.iotdb.tsfile.read.common.type.BinaryType.TEXT;
-import static org.apache.iotdb.tsfile.read.common.type.BooleanType.BOOLEAN;
-import static org.apache.iotdb.tsfile.read.common.type.DoubleType.DOUBLE;
-import static org.apache.iotdb.tsfile.read.common.type.LongType.INT64;
-import static org.apache.iotdb.tsfile.utils.RegexUtils.compileRegex;
-import static org.apache.iotdb.tsfile.utils.RegexUtils.parseLikePatternToRegex;
+import static org.apache.tsfile.read.common.type.BinaryType.TEXT;
+import static org.apache.tsfile.read.common.type.BooleanType.BOOLEAN;
+import static org.apache.tsfile.read.common.type.DoubleType.DOUBLE;
+import static org.apache.tsfile.read.common.type.LongType.INT64;
+import static org.apache.tsfile.utils.RegexUtils.compileRegex;
+import static org.apache.tsfile.utils.RegexUtils.parseLikePatternToRegex;
 
 public class ColumnTransformerBuilder
     extends AstVisitor<ColumnTransformer, ColumnTransformerBuilder.Context> {
@@ -296,44 +297,50 @@ public class ColumnTransformerBuilder
   @Override
   protected ColumnTransformer visitComparisonExpression(
       ComparisonExpression node, Context context) {
-    ColumnTransformer res =
-        context.cache.computeIfAbsent(
-            node,
-            n -> {
-              if (context.hasSeen.containsKey(node)) {
-                IdentityColumnTransformer identity =
-                    new IdentityColumnTransformer(
-                        BOOLEAN, context.originSize + context.commonTransformerList.size());
-                ColumnTransformer columnTransformer = context.hasSeen.get(node);
-                columnTransformer.addReferenceCount();
-                context.commonTransformerList.add(columnTransformer);
-                context.leafList.add(identity);
-                context.inputDataTypes.add(TSDataType.BOOLEAN);
-                return identity;
-              } else {
-                ColumnTransformer left = process(node.getLeft(), context);
-                ColumnTransformer right = process(node.getRight(), context);
-                switch (node.getOperator()) {
-                  case EQUAL:
-                    return new CompareEqualToColumnTransformer(BOOLEAN, left, right);
-                  case NOT_EQUAL:
-                    return new CompareNonEqualColumnTransformer(BOOLEAN, left, right);
-                  case GREATER_THAN:
-                    return new CompareGreaterThanColumnTransformer(BOOLEAN, left, right);
-                  case GREATER_THAN_OR_EQUAL:
-                    return new CompareGreaterEqualColumnTransformer(BOOLEAN, left, right);
-                  case LESS_THAN:
-                    return new CompareLessThanColumnTransformer(BOOLEAN, left, right);
-                  case LESS_THAN_OR_EQUAL:
-                    return new CompareLessEqualColumnTransformer(BOOLEAN, left, right);
-                  default:
-                    throw new UnsupportedOperationException(
-                        String.format(UNSUPPORTED_EXPRESSION, node.getOperator()));
-                }
-              }
-            });
-    res.addReferenceCount();
-    return res;
+    // fixme why using computeIfAbsent throw npe
+    ColumnTransformer comparisonTransformer;
+    if (!context.cache.containsKey(node)) {
+      comparisonTransformer = getColumnTransformer(node, context);
+    } else {
+      comparisonTransformer = getColumnTransformer(node, context);
+      context.cache.put(node, comparisonTransformer);
+    }
+    comparisonTransformer.addReferenceCount();
+    return comparisonTransformer;
+  }
+
+  private ColumnTransformer getColumnTransformer(ComparisonExpression node, Context context) {
+    if (context.hasSeen.containsKey(node)) {
+      IdentityColumnTransformer identity =
+          new IdentityColumnTransformer(
+              BOOLEAN, context.originSize + context.commonTransformerList.size());
+      ColumnTransformer columnTransformer = context.hasSeen.get(node);
+      columnTransformer.addReferenceCount();
+      context.commonTransformerList.add(columnTransformer);
+      context.leafList.add(identity);
+      context.inputDataTypes.add(TSDataType.BOOLEAN);
+      return identity;
+    } else {
+      ColumnTransformer left = process(node.getLeft(), context);
+      ColumnTransformer right = process(node.getRight(), context);
+      switch (node.getOperator()) {
+        case EQUAL:
+          return new CompareEqualToColumnTransformer(BOOLEAN, left, right);
+        case NOT_EQUAL:
+          return new CompareNonEqualColumnTransformer(BOOLEAN, left, right);
+        case GREATER_THAN:
+          return new CompareGreaterThanColumnTransformer(BOOLEAN, left, right);
+        case GREATER_THAN_OR_EQUAL:
+          return new CompareGreaterEqualColumnTransformer(BOOLEAN, left, right);
+        case LESS_THAN:
+          return new CompareLessThanColumnTransformer(BOOLEAN, left, right);
+        case LESS_THAN_OR_EQUAL:
+          return new CompareLessEqualColumnTransformer(BOOLEAN, left, right);
+        default:
+          throw new UnsupportedOperationException(
+              String.format(UNSUPPORTED_EXPRESSION, node.getOperator()));
+      }
+    }
   }
 
   @Override
