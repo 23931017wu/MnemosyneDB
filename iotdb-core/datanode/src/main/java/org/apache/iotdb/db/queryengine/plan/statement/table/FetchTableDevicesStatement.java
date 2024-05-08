@@ -17,33 +17,28 @@
  * under the License.
  */
 
-package org.apache.iotdb.db.queryengine.plan.statement.metadata;
+package org.apache.iotdb.db.queryengine.plan.statement.table;
 
-import org.apache.iotdb.commons.schema.filter.SchemaFilter;
+import org.apache.iotdb.commons.path.PartialPath;
+import org.apache.iotdb.db.queryengine.plan.statement.Statement;
 import org.apache.iotdb.db.queryengine.plan.statement.StatementVisitor;
 
+import java.util.Collections;
 import java.util.List;
 
-public class ShowTableDevicesStatement extends ShowStatement {
+public class FetchTableDevicesStatement extends Statement {
 
   private final String database;
 
   private final String tableName;
 
-  private final List<SchemaFilter> idDeterminedFilterList;
+  private final List<String[]> deviceIdList;
 
-  private final List<SchemaFilter> idFuzzyFilterList;
-
-  public ShowTableDevicesStatement(
-      String database,
-      String tableName,
-      List<SchemaFilter> idDeterminedFilterList,
-      List<SchemaFilter> idFuzzyFilterList) {
-    super();
+  public FetchTableDevicesStatement(
+      String database, String tableName, List<String[]> deviceIdList) {
     this.database = database;
     this.tableName = tableName;
-    this.idDeterminedFilterList = idDeterminedFilterList;
-    this.idFuzzyFilterList = idFuzzyFilterList;
+    this.deviceIdList = deviceIdList;
   }
 
   public String getDatabase() {
@@ -54,16 +49,17 @@ public class ShowTableDevicesStatement extends ShowStatement {
     return tableName;
   }
 
-  public List<SchemaFilter> getIdDeterminedFilterList() {
-    return idDeterminedFilterList;
+  public List<String[]> getDeviceIdList() {
+    return deviceIdList;
   }
 
-  public List<SchemaFilter> getIdFuzzyFilterList() {
-    return idFuzzyFilterList;
+  @Override
+  public List<PartialPath> getPaths() {
+    return Collections.emptyList();
   }
 
   @Override
   public <R, C> R accept(StatementVisitor<R, C> visitor, C context) {
-    return visitor.visitShowTableDevices(this, context);
+    return visitor.visitFetchTableDevices(this, context);
   }
 }

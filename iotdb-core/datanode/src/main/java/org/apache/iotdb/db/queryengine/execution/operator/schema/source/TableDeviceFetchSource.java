@@ -19,140 +19,54 @@
 
 package org.apache.iotdb.db.queryengine.execution.operator.schema.source;
 
+import org.apache.iotdb.commons.exception.MetadataException;
 import org.apache.iotdb.commons.exception.runtime.SchemaExecutionException;
 import org.apache.iotdb.commons.path.PartialPath;
-import org.apache.iotdb.commons.schema.filter.SchemaFilter;
 import org.apache.iotdb.commons.schema.filter.impl.DeviceFilterToPathUtil;
 import org.apache.iotdb.commons.schema.table.TsTable;
 import org.apache.iotdb.commons.schema.table.column.TsTableColumnCategory;
 import org.apache.iotdb.commons.schema.table.column.TsTableColumnSchema;
 import org.apache.iotdb.db.queryengine.common.header.ColumnHeader;
 import org.apache.iotdb.db.schemaengine.schemaregion.ISchemaRegion;
-import org.apache.iotdb.db.schemaengine.schemaregion.read.req.impl.ShowTableDevicesPlan;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.resp.info.IDeviceSchemaInfo;
 import org.apache.iotdb.db.schemaengine.schemaregion.read.resp.reader.ISchemaReader;
 import org.apache.iotdb.db.schemaengine.table.DataNodeTableCache;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.tsfile.common.conf.TSFileConfig;
 import org.apache.tsfile.read.common.block.TsBlockBuilder;
 import org.apache.tsfile.utils.Binary;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
-public class TableDeviceSchemaSource implements ISchemaSource<IDeviceSchemaInfo> {
+public class TableDeviceFetchSource implements ISchemaSource<IDeviceSchemaInfo> {
 
   private String database;
 
   private String tableName;
 
-  private List<SchemaFilter> idDeterminedFilterList;
-
-  private List<SchemaFilter> idFuzzyFilterList;
+  private List<String[]> deviceIdList;
 
   private List<ColumnHeader> columnHeaderList;
 
-  public TableDeviceSchemaSource(
+  public TableDeviceFetchSource(
       String database,
       String tableName,
-      List<SchemaFilter> idDeterminedFilterList,
-      List<SchemaFilter> idFuzzyFilterList,
+      List<String[]> deviceIdList,
       List<ColumnHeader> columnHeaderList) {
     this.database = database;
     this.tableName = tableName;
-    this.idDeterminedFilterList = idDeterminedFilterList;
-    this.idFuzzyFilterList = idFuzzyFilterList;
+    this.deviceIdList = deviceIdList;
     this.columnHeaderList = columnHeaderList;
   }
 
   @Override
   public ISchemaReader<IDeviceSchemaInfo> getSchemaReader(ISchemaRegion schemaRegion) {
-    List<PartialPath> devicePatternList = getDevicePatternList();
-    return new ISchemaReader<IDeviceSchemaInfo>() {
-
-      private ISchemaReader<IDeviceSchemaInfo> deviceReader;
-      private Throwable throwable;
-      private int index = 0;
-
-      @Override
-      public boolean isSuccess() {
-        return throwable == null && (deviceReader == null || deviceReader.isSuccess());
-      }
-
-      @Override
-      public Throwable getFailure() {
-        if (throwable != null) {
-          return throwable;
-        } else if (deviceReader != null) {
-          return deviceReader.getFailure();
-        }
-        return null;
-      }
-
-      @Override
-      public ListenableFuture<?> isBlocked() {
-        return NOT_BLOCKED;
-      }
-
-      @Override
-      public boolean hasNext() {
-        try {
-          if (throwable != null) {
-            return false;
-          }
-          if (deviceReader != null) {
-            if (deviceReader.hasNext()) {
-              return true;
-            } else {
-              deviceReader.close();
-              if (!deviceReader.isSuccess()) {
-                throwable = deviceReader.getFailure();
-                return false;
-              }
-            }
-          }
-
-          while (index < devicePatternList.size()) {
-            deviceReader =
-                schemaRegion.getTableDeviceReader(
-                    new ShowTableDevicesPlan(devicePatternList.get(index), idFuzzyFilterList));
-            index++;
-            if (deviceReader.hasNext()) {
-              return true;
-            } else {
-              deviceReader.close();
-            }
-          }
-          return false;
-        } catch (Exception e) {
-          throw new SchemaExecutionException(e.getMessage(), e);
-        }
-      }
-
-      @Override
-      public IDeviceSchemaInfo next() {
-        if (!hasNext()) {
-          throw new NoSuchElementException();
-        }
-        return deviceReader.next();
-      }
-
-      @Override
-      public void close() throws Exception {
-        if (deviceReader != null) {
-          deviceReader.close();
-        }
-      }
-    };
-  }
-
-  private List<PartialPath> getDevicePatternList() {
-    return DeviceFilterToPathUtil.convertToDevicePattern(
-        database,
-        tableName,
-        DataNodeTableCache.getInstance().getTable(database, tableName),
-        idDeterminedFilterList);
+    try {
+      return schemaRegion.getDeviceReader(
+          DeviceFilterToPathUtil.convertToDevicePath(database, tableName, deviceIdList));
+    } catch (MetadataException e) {
+      throw new SchemaExecutionException(e);
+    }
   }
 
   @Override

@@ -36,6 +36,8 @@ import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.Sche
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.SchemaQueryOrderByHeatNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.TimeSeriesCountNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.TimeSeriesSchemaScanNode;
+import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.table.TableDeviceFetchNode;
+import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.read.table.TableDeviceScanNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.write.ActivateTemplateNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.write.AlterTimeSeriesNode;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.metedata.write.BatchActivateTemplateNode;
@@ -213,7 +215,8 @@ public enum PlanNodeType {
   PIPE_OPERATE_SCHEMA_QUEUE_REFERENCE((short) 91),
 
   CREATE_TABLE_DEVICE((short) 92),
-  ;
+  TABLE_DEVICE_SCAN((short) 93),
+  TABLE_DEVICE_FETCH((short) 94);
 
   public static final int BYTES = Short.BYTES;
 
@@ -446,6 +449,10 @@ public enum PlanNodeType {
         return PipeOperateSchemaQueueNode.deserialize(buffer);
       case 92:
         return CreateTableDeviceNode.deserialize(buffer);
+      case 93:
+        return TableDeviceScanNode.deserialize(buffer);
+      case 94:
+        return TableDeviceFetchNode.deserialize(buffer);
       default:
         throw new IllegalArgumentException("Invalid node type: " + nodeType);
     }
