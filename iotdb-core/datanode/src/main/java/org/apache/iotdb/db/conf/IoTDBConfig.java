@@ -48,6 +48,7 @@ import org.apache.iotdb.rpc.ZeroCopyRpcTransportFactory;
 import org.apache.tsfile.common.conf.TSFileDescriptor;
 import org.apache.tsfile.common.constant.TsFileConstant;
 import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.file.metadata.enums.CompressionType;
 import org.apache.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.tsfile.fileSystem.FSType;
 import org.apache.tsfile.utils.FSUtils;
@@ -1123,6 +1124,8 @@ public class IoTDBConfig {
    * TimeUnit/resources interval.
    */
   private String RateLimiterType = "FixedIntervalRateLimiter";
+
+  private CompressionType WALCompressionAlgorithm = CompressionType.UNCOMPRESSED;
 
   IoTDBConfig() {}
 
@@ -3916,11 +3919,11 @@ public class IoTDBConfig {
     this.innerCompactionTaskSelectionDiskRedundancy = innerCompactionTaskSelectionDiskRedundancy;
   }
 
-  public boolean isEnableWALCompression() {
-    return enableWALCompression;
+  public CompressionType getWALCompressionAlgorithm() {
+    return WALCompressionAlgorithm;
   }
 
-  public void setEnableWALCompression(boolean enableWALCompression) {
-    this.enableWALCompression = enableWALCompression;
+  public void setWALCompressionAlgorithm(CompressionType WALCompressionAlgorithm) {
+    this.WALCompressionAlgorithm = WALCompressionAlgorithm;
   }
 }
