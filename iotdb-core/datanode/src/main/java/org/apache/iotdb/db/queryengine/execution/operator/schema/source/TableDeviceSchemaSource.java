@@ -22,7 +22,7 @@ package org.apache.iotdb.db.queryengine.execution.operator.schema.source;
 import org.apache.iotdb.commons.exception.runtime.SchemaExecutionException;
 import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.commons.schema.filter.SchemaFilter;
-import org.apache.iotdb.commons.schema.filter.impl.DeviceFilterToPathUtil;
+import org.apache.iotdb.commons.schema.filter.impl.DeviceFilterUtil;
 import org.apache.iotdb.commons.schema.table.TsTable;
 import org.apache.iotdb.commons.schema.table.column.TsTableColumnCategory;
 import org.apache.iotdb.commons.schema.table.column.TsTableColumnSchema;
@@ -47,22 +47,22 @@ public class TableDeviceSchemaSource implements ISchemaSource<IDeviceSchemaInfo>
 
   private String tableName;
 
-  private List<SchemaFilter> idDeterminedFilterList;
+  private List<List<SchemaFilter>> idDeterminedFilterList;
 
-  private List<SchemaFilter> idFuzzyFilterList;
+  private SchemaFilter idFuzzyFilter;
 
   private List<ColumnHeader> columnHeaderList;
 
   public TableDeviceSchemaSource(
       String database,
       String tableName,
-      List<SchemaFilter> idDeterminedFilterList,
-      List<SchemaFilter> idFuzzyFilterList,
+      List<List<SchemaFilter>> idDeterminedFilterList,
+      SchemaFilter idFuzzyFilter,
       List<ColumnHeader> columnHeaderList) {
     this.database = database;
     this.tableName = tableName;
     this.idDeterminedFilterList = idDeterminedFilterList;
-    this.idFuzzyFilterList = idFuzzyFilterList;
+    this.idFuzzyFilter = idFuzzyFilter;
     this.columnHeaderList = columnHeaderList;
   }
 
@@ -116,7 +116,7 @@ public class TableDeviceSchemaSource implements ISchemaSource<IDeviceSchemaInfo>
           while (index < devicePatternList.size()) {
             deviceReader =
                 schemaRegion.getTableDeviceReader(
-                    new ShowTableDevicesPlan(devicePatternList.get(index), idFuzzyFilterList));
+                    new ShowTableDevicesPlan(devicePatternList.get(index), idFuzzyFilter));
             index++;
             if (deviceReader.hasNext()) {
               return true;
@@ -148,9 +148,8 @@ public class TableDeviceSchemaSource implements ISchemaSource<IDeviceSchemaInfo>
   }
 
   private List<PartialPath> getDevicePatternList() {
-    return DeviceFilterToPathUtil.convertToDevicePattern(
+    return DeviceFilterUtil.convertToDevicePattern(
         database,
-        tableName,
         DataNodeTableCache.getInstance().getTable(database, tableName),
         idDeterminedFilterList);
   }
@@ -166,24 +165,32 @@ public class TableDeviceSchemaSource implements ISchemaSource<IDeviceSchemaInfo>
     builder.getTimeColumnBuilder().writeLong(0L);
     int resultIndex = 0;
     int idIndex = 0;
-    PartialPath devicePath = schemaInfo.getPartialPath();
+    String[] pathNodes = schemaInfo.getRawNodes();
     TsTable table = DataNodeTableCache.getInstance().getTable(this.database, tableName);
     TsTableColumnSchema columnSchema;
     for (ColumnHeader columnHeader : columnHeaderList) {
       columnSchema = table.getColumnSchema(columnHeader.getColumnName());
       if (columnSchema.getColumnCategory().equals(TsTableColumnCategory.ID)) {
-        builder
-            .getColumnBuilder(resultIndex)
-            .writeBinary(
-                new Binary(devicePath.getNodes()[idIndex + 3], TSFileConfig.STRING_CHARSET));
+        if (pathNodes[idIndex + 3] == null) {
+          builder.getColumnBuilder(resultIndex).appendNull();
+        } else {
+          builder
+              .getColumnBuilder(resultIndex)
+              .writeBinary(new Binary(pathNodes[idIndex + 3], TSFileConfig.STRING_CHARSET));
+        }
         idIndex++;
       } else if (columnSchema.getColumnCategory().equals(TsTableColumnCategory.ATTRIBUTE)) {
-        builder
-            .getColumnBuilder(resultIndex)
-            .writeBinary(
-                new Binary(
-                    schemaInfo.getAttributeValue(columnHeader.getColumnName()),
-                    TSFileConfig.STRING_CHARSET));
+        String attributeValue = schemaInfo.getAttributeValue(columnHeader.getColumnName());
+        if (attributeValue == null) {
+          builder.getColumnBuilder(resultIndex).appendNull();
+        } else {
+          builder
+              .getColumnBuilder(resultIndex)
+              .writeBinary(
+                  new Binary(
+                      schemaInfo.getAttributeValue(columnHeader.getColumnName()),
+                      TSFileConfig.STRING_CHARSET));
+        }
       }
       resultIndex++;
     }
