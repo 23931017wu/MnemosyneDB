@@ -238,6 +238,10 @@ EXPLAIN
     : E X P L A I N
     ;
 
+DRAW
+    : D R A W
+    ;
+
 FILL
     : F I L L
     ;

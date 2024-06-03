@@ -1888,6 +1888,14 @@ public class IoTDBDescriptor {
             properties.getProperty(
                 "driver_task_execution_time_slice_in_ms",
                 Integer.toString(conf.getDriverTaskExecutionTimeSliceInMs()))));
+    conf.setDrawWidth(
+        Integer.parseInt(
+            properties.getProperty(
+                "draw_width", Integer.toString(conf.getDriverTaskExecutionTimeSliceInMs()))));
+    conf.setDrawWHRate(
+        Integer.parseInt(
+            properties.getProperty(
+                "draw_wh_rate", Integer.toString(conf.getDriverTaskExecutionTimeSliceInMs()))));
   }
 
   /** Get default encode algorithm by data type */

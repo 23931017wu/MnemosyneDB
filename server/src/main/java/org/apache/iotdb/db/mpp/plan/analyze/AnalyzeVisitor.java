@@ -107,6 +107,7 @@ import org.apache.iotdb.db.mpp.plan.statement.metadata.template.ShowNodesInSchem
 import org.apache.iotdb.db.mpp.plan.statement.metadata.template.ShowPathSetTemplateStatement;
 import org.apache.iotdb.db.mpp.plan.statement.metadata.template.ShowPathsUsingTemplateStatement;
 import org.apache.iotdb.db.mpp.plan.statement.metadata.template.ShowSchemaTemplateStatement;
+import org.apache.iotdb.db.mpp.plan.statement.sys.DrawStatement;
 import org.apache.iotdb.db.mpp.plan.statement.sys.ExplainStatement;
 import org.apache.iotdb.db.mpp.plan.statement.sys.ShowVersionStatement;
 import org.apache.iotdb.db.mpp.plan.statement.sys.sync.ShowPipeSinkTypeStatement;
@@ -187,6 +188,137 @@ public class AnalyzeVisitor extends StatementVisitor<Analysis, MPPQueryContext> 
     Analysis analysis = visitQuery(explainStatement.getQueryStatement(), context);
     analysis.setStatement(explainStatement);
     analysis.setFinishQueryAfterAnalyze(true);
+    return analysis;
+  }
+
+  @Override
+  public Analysis visitDraw(DrawStatement drawStatement, MPPQueryContext context) {
+    QueryStatement queryStatement = drawStatement.getQueryStatement();
+
+    Analysis analysis = new Analysis();
+    try {
+      // check for semantic errors
+      queryStatement.semanticCheck();
+
+      if (queryStatement.isAggregationQuery()) {
+        throw new UnsupportedOperationException("Aggregation not supported");
+      }
+
+      // concat path and construct path pattern tree
+      PathPatternTree patternTree = new PathPatternTree();
+      queryStatement =
+          (QueryStatement) new ConcatPathRewriter().rewrite(queryStatement, patternTree);
+      analysis.setStatement(queryStatement);
+
+      // request schema fetch API
+      logger.debug("[StartFetchSchema]");
+      ISchemaTree schemaTree;
+      if (queryStatement.isGroupByTag()) {
+        schemaTree = schemaFetcher.fetchSchemaWithTags(patternTree);
+      } else {
+        schemaTree = schemaFetcher.fetchSchema(patternTree);
+      }
+      logger.debug("[EndFetchSchema]");
+
+      if (schemaTree.getAllMeasurement().size() > 1) {
+        throw new UnsupportedOperationException("Multiple columns are not supported");
+      }
+
+      switch (schemaTree.getAllMeasurement().get(0).getSeriesType()) {
+        case INT32:
+        case INT64:
+        case DOUBLE:
+        case FLOAT:
+          break;
+        default:
+          String err =
+              "The current column type is "
+                  + schemaTree.getAllMeasurement().get(0).getSeriesType()
+                  + ", and we only support drawings of numeric types";
+          throw new UnsupportedOperationException(
+              "The current column type is TEXT, and we only support drawings of numeric types");
+      }
+      // If there is no leaf node in the schema tree, the query should be completed immediately
+      if (schemaTree.isEmpty()) {
+        if (queryStatement.isSelectInto()) {
+          analysis.setRespDatasetHeader(
+              DatasetHeaderFactory.getSelectIntoHeader(queryStatement.isAlignByDevice()));
+        }
+        if (queryStatement.isLastQuery()) {
+          analysis.setRespDatasetHeader(DatasetHeaderFactory.getLastQueryHeader());
+        }
+        analysis.setFinishQueryAfterAnalyze(true);
+        return analysis;
+      }
+
+      // extract global time filter from query filter and determine if there is a value filter
+      analyzeGlobalTimeFilter(analysis, queryStatement);
+
+      if (queryStatement.isLastQuery()) {
+        if (analysis.hasValueFilter()) {
+          throw new SemanticException("Only time filters are supported in LAST query");
+        }
+        analyzeOrderBy(analysis, queryStatement);
+        return analyzeLast(analysis, schemaTree.getAllMeasurement(), schemaTree);
+      }
+
+      List<Pair<Expression, String>> outputExpressions;
+      if (queryStatement.isAlignByDevice()) {
+        Set<PartialPath> deviceSet = analyzeFrom(queryStatement, schemaTree);
+        outputExpressions = analyzeSelect(analysis, queryStatement, schemaTree, deviceSet);
+
+        Map<String, Set<Expression>> deviceToAggregationExpressions = new HashMap<>();
+        analyzeHaving(
+            analysis, queryStatement, schemaTree, deviceSet, deviceToAggregationExpressions);
+        analyzeDeviceToAggregation(analysis, queryStatement, deviceToAggregationExpressions);
+        analysis.setDeviceToAggregationExpressions(deviceToAggregationExpressions);
+
+        analyzeDeviceToWhere(analysis, queryStatement, schemaTree, deviceSet);
+        analyzeDeviceToSourceTransform(analysis, queryStatement);
+
+        analyzeDeviceToSource(analysis, queryStatement);
+        analyzeDeviceView(analysis, queryStatement, outputExpressions);
+
+        analyzeInto(analysis, queryStatement, deviceSet, outputExpressions);
+      } else {
+        Map<Integer, List<Pair<Expression, String>>> outputExpressionMap =
+            analyzeSelect(analysis, queryStatement, schemaTree);
+        outputExpressions = new ArrayList<>();
+        outputExpressionMap.values().forEach(outputExpressions::addAll);
+        analyzeHaving(analysis, queryStatement, schemaTree);
+        analyzeGroupByLevel(analysis, queryStatement, outputExpressionMap, outputExpressions);
+        analyzeGroupByTag(analysis, queryStatement, outputExpressions, schemaTree);
+        Set<Expression> selectExpressions =
+            outputExpressions.stream()
+                .map(Pair::getLeft)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        analysis.setSelectExpressions(selectExpressions);
+
+        analyzeAggregation(analysis, queryStatement);
+
+        analyzeWhere(analysis, queryStatement, schemaTree);
+        analyzeSourceTransform(analysis, queryStatement);
+
+        analyzeSource(analysis, queryStatement);
+
+        analyzeInto(analysis, queryStatement, outputExpressions);
+      }
+
+      analyzeGroupBy(analysis, queryStatement);
+
+      analyzeFill(analysis, queryStatement);
+
+      // generate result set header according to output expressions
+      analyzeOutput(analysis, queryStatement, outputExpressions);
+
+      // fetch partition information
+      analyzeDataPartition(analysis, queryStatement, schemaTree);
+
+    } catch (StatementAnalyzeException e) {
+      logger.warn("Meet error when analyzing the query statement: ", e);
+      throw new StatementAnalyzeException(
+          "Meet error when analyzing the query statement: " + e.getMessage());
+    }
     return analysis;
   }
 
