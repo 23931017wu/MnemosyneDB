@@ -90,7 +90,8 @@ public abstract class AbstractCli {
   static final String SET_FETCH_SIZE = "set fetch_size";
   static final String SHOW_FETCH_SIZE = "show fetch_size";
   private static final String HELP = "help";
-  static final String IOTDB_CLI_PREFIX = "IoTDB";
+  // static final String IOTDB_CLI_PREFIX = "IoTDB";
+  static final String IOTDB_CLI_PREFIX = "MnemosyneDB";
   static final String SCRIPT_HINT = "./start-cli.sh(start-cli.bat if Windows)";
   static final String QUIT_COMMAND = "quit";
   static final String EXIT_COMMAND = "exit";
@@ -325,6 +326,25 @@ public abstract class AbstractCli {
 
   static void displayLogo(String version, String buildInfo) {
     println(
+        "  __  __                                                          _____   ____  \n"
+            + " |  \\/  |                                                        |  __ \\ |  _ \\ \n"
+            + " | \\  / | _ __    ___  _ __ ___    ___   ___  _   _  _ __    ___ | |  | || |_) |\n"
+            + " | |\\/| || '_ \\  / _ \\| '_ ` _ \\  / _ \\ / __|| | | || '_ \\  / _ \\| |  | ||  _ < \n"
+            + " | |  | || | | ||  __/| | | | | || (_) |\\__ \\| |_| || | | ||  __/| |__| || |_) |\n"
+            + " |_|  |_||_| |_| \\___||_| |_| |_| \\___/ |___/ \\__, ||_| |_| \\___||_____/ |____/\n"
+            + "                                              __/ |                             \n"
+            + "                                             |___/                             "
+            + "version "
+            + version
+            + " (Build: "
+            + (buildInfo != null ? buildInfo : "UNKNOWN")
+            + ")"
+            + "\n"
+            + "                                           \n");
+  }
+
+  static void displayLogo2(String version, String buildInfo) {
+    println(
         " _____       _________  ______   ______    \n"
             + "|_   _|     |  _   _  ||_   _ `.|_   _ \\   \n"
             + "  | |   .--.|_/ | | \\_|  | | `. \\ | |_) |  \n"
@@ -340,6 +360,12 @@ public abstract class AbstractCli {
   }
 
   static void echoStarting() {
+    println("---------------------");
+    println("Starting MnemosyneDB Cli");
+    println("---------------------");
+  }
+
+  static void echoStarting2() {
     println("---------------------");
     println("Starting IoTDB Cli");
     println("---------------------");
