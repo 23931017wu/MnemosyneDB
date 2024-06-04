@@ -142,6 +142,9 @@ public class IoTDBConstant {
   public static final String COLUMN_ATTRIBUTES = "attributes";
   public static final String COLUMN_IS_ALIGNED = "isAligned";
   public static final String COLUMN_DISTRIBUTION_PLAN = "distribution plan";
+
+  public static final String COLUMN_Draw = "Draw data";
+
   public static final String QUERY_ID = "queryId";
   public static final String STATEMENT = "statement";
 

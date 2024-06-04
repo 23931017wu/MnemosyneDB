@@ -32,6 +32,7 @@ import org.apache.iotdb.db.auth.AuthorityChecker;
 import org.apache.iotdb.db.conf.IoTDBConfig;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.conf.OperationType;
+import org.apache.iotdb.db.draw.DrawManager;
 import org.apache.iotdb.db.metadata.template.TemplateQueryType;
 import org.apache.iotdb.db.mpp.common.header.DatasetHeader;
 import org.apache.iotdb.db.mpp.plan.Coordinator;
@@ -243,6 +244,7 @@ public class ClientRPCServiceImpl implements IClientRPCServiceWithHandler {
         } else {
           resp = RpcUtils.getTSExecuteStatementResp(result.status);
         }
+        resp = DrawManager.isNeedDraw(s, resp);
         return resp;
       }
     } catch (Exception e) {

@@ -1067,6 +1067,26 @@ public class IoTDBConfig {
   private long dataRatisLogMax = 20L * 1024 * 1024 * 1024; // 20G
   private long schemaRatisLogMax = 2L * 1024 * 1024 * 1024; // 2G
 
+  private int drawWidth = 100;
+
+  private int drawWHRate = 4;
+
+  public int getDrawWidth() {
+    return drawWidth;
+  }
+
+  public void setDrawWidth(int drawWidth) {
+    this.drawWidth = drawWidth;
+  }
+
+  public int getDrawWHRate() {
+    return drawWHRate;
+  }
+
+  public void setDrawWHRate(int drawWHRate) {
+    this.drawWHRate = drawWHRate;
+  }
+
   /** whether to enable the audit log * */
   private boolean enableAuditLog = false;
 
